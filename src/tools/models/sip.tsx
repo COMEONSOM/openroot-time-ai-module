@@ -1,19 +1,31 @@
 import React, { useRef, useEffect } from "react";
 
-const INITIAL_DATA = {
-  mode: null, // "sip" | "lump"
+type Mode = "sip" | "lump" | null;
+
+interface InvestmentData {
+  mode: Mode;
+  amount: number | null;
+  years: number | null;
+  rate: number | null;
+  inflation: number | null;
+}
+
+const INITIAL_DATA: InvestmentData = {
+  mode: null,
   amount: null,
   years: null,
   rate: null,
   inflation: null,
 };
 
-const InvestmentGrowthAI = () => {
-  const chatRef = useRef(null);
-  const inputRef = useRef(null);
-  const typingRef = useRef(null);
+const InvestmentGrowthAI: React.FC = () => {
+  // DOM refs
+  const chatRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLDivElement | null>(null);
+  const typingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const dataRef = useRef({ ...INITIAL_DATA });
+  // Data refs
+  const dataRef = useRef<InvestmentData>({ ...INITIAL_DATA });
   const invalidAttemptsRef = useRef({
     amount: 0,
     years: 0,
@@ -33,7 +45,7 @@ const InvestmentGrowthAI = () => {
     if (alert) alert.remove();
   };
 
-  const showInlineAlert = (text) => {
+  const showInlineAlert = (text: string) => {
     clearInlineAlert();
     if (!inputRef.current) return;
     const div = document.createElement("div");
@@ -42,8 +54,9 @@ const InvestmentGrowthAI = () => {
     inputRef.current.appendChild(div);
   };
 
-  const addMsg = (txt, sender = "ai", isHTML = false) => {
+  const addMsg = (txt: string, sender: "ai" | "user" = "ai", isHTML = false) => {
     if (!chatRef.current) return;
+
     const row = document.createElement("div");
     row.className = `message-row ${sender}`;
 
@@ -51,19 +64,15 @@ const InvestmentGrowthAI = () => {
     bubble.className =
       "message " + (sender === "ai" ? "ai-message" : "user-message");
 
-    if (isHTML) {
-      // only internal templates here, no user input
-      bubble.innerHTML = txt;
-    } else {
-      bubble.textContent = txt;
-    }
+    if (isHTML) bubble.innerHTML = txt;
+    else bubble.textContent = txt;
 
     row.appendChild(bubble);
     chatRef.current.appendChild(row);
     scrollToBottom();
   };
 
-  const bot = (txt, cb) => {
+  const bot = (txt: string, cb?: () => void) => {
     if (!chatRef.current) return;
 
     const old = chatRef.current.querySelector("#typing");
@@ -82,7 +91,6 @@ const InvestmentGrowthAI = () => {
     scrollToBottom();
 
     if (typingRef.current) clearTimeout(typingRef.current);
-
     typingRef.current = setTimeout(() => {
       const still = chatRef.current?.querySelector("#typing");
       if (still) still.remove();
@@ -91,10 +99,10 @@ const InvestmentGrowthAI = () => {
     }, 650);
   };
 
-  const isSuspiciousAmount = (amount) => amount > 50_000_000;
-  const isSuspiciousYears = (years) => years > 60;
-  const isSuspiciousRate = (rate) => rate > 30;
-  const isSuspiciousInflation = (i) => i > 25;
+  const isSuspiciousAmount = (amount: number) => amount > 50_000_000;
+  const isSuspiciousYears = (years: number) => years > 60;
+  const isSuspiciousRate = (rate: number) => rate > 30;
+  const isSuspiciousInflation = (i: number) => i > 25;
 
   // --------- mode select ---------
   const renderModeSelect = () => {
@@ -109,7 +117,7 @@ const InvestmentGrowthAI = () => {
       </div>
     `;
 
-    const [sipBtn, lumpBtn] = inputRef.current.querySelectorAll("button");
+    const [sipBtn, lumpBtn] = inputRef.current.querySelectorAll("button") as NodeListOf<HTMLButtonElement>;
 
     sipBtn.onclick = () => {
       dataRef.current.mode = "sip";
@@ -138,27 +146,22 @@ const InvestmentGrowthAI = () => {
     if (!inputRef.current) return;
 
     const isSip = dataRef.current.mode === "sip";
-
     inputRef.current.innerHTML = `
       <div class="input-label">Enter amount:</div>
       <div class="input-row">
-        <input
-          type="number"
-          class="assistant-input"
-          placeholder="${isSip ? "Monthly SIP amount (₹)" : "Lump sum amount (₹)"}"
-        />
+        <input type="number" class="assistant-input" placeholder="${
+          isSip ? "Monthly SIP amount (₹)" : "Lump sum amount (₹)"
+        }"/>
         <button class="primary-btn">Next →</button>
       </div>
     `;
 
-    const input = inputRef.current.querySelector("input");
-    const btn = inputRef.current.querySelector("button");
+    const input = inputRef.current.querySelector("input") as HTMLInputElement;
+    const btn = inputRef.current.querySelector("button") as HTMLButtonElement;
 
     const suggestionRow = document.createElement("div");
     suggestionRow.className = "choice-row";
-    const suggestions = isSip
-      ? [1000, 2000, 5000, 10000]
-      : [25000, 50000, 100000, 200000];
+    const suggestions = isSip ? [1000, 2000, 5000, 10000] : [25000, 50000, 100000, 200000];
 
     suggestions.forEach((amt) => {
       const b = document.createElement("button");
@@ -178,30 +181,21 @@ const InvestmentGrowthAI = () => {
       const amount = Number(raw);
       input.classList.remove("input-error");
 
-      const invalid =
-        !raw || Number.isNaN(amount) || amount <= 0 || amount > 1_000_000_000;
-
+      const invalid = !raw || Number.isNaN(amount) || amount <= 0 || amount > 1_000_000_000;
       if (invalid) {
         invalidAttemptsRef.current.amount += 1;
         input.classList.add("input-error");
-
-        if (invalidAttemptsRef.current.amount >= 3) {
-          showInlineAlert(
-            "Try a realistic positive amount. Ex: 2000, 5000, 25000."
-          );
-          bot("I just need a valid amount in rupees to continue 😊", null);
-        } else {
-          showInlineAlert("That doesn’t look right. Try 2000, 5000, 10000…");
-        }
+        invalidAttemptsRef.current.amount >= 3
+          ? (showInlineAlert("Try a realistic positive amount. Ex: 2000, 5000, 25000."),
+            bot("I just need a valid amount in rupees to continue 😊"))
+          : showInlineAlert("That doesn’t look right. Try 2000, 5000, 10000…");
         return;
       }
 
       if (isSuspiciousAmount(amount)) {
         input.classList.add("input-error");
-        showInlineAlert(
-          "Whoa, that’s a huge number. Please double-check the zeros."
-        );
-        bot("That’s a big ticket. Re-check once and then re-enter if correct 👀", null);
+        showInlineAlert("Whoa, that’s a huge number. Please double-check the zeros.");
+        bot("That’s a big ticket. Re-check once and then re-enter if correct 👀");
         return;
       }
 
@@ -210,14 +204,12 @@ const InvestmentGrowthAI = () => {
       addMsg(`₹${amount.toLocaleString("en-IN")}`, "user");
 
       bot("Nice. Consistency beats timing in the long run 💪", () => {
-        bot("Next: for how many years will you stay invested?", () =>
-          renderYears()
-        );
+        bot("Next: for how many years will you stay invested?", () => renderYears());
       });
     };
 
     btn.onclick = onSubmit;
-    input.addEventListener("keydown", (e) => {
+    input.addEventListener("keydown", (e: KeyboardEvent) => {
       if (e.key === "Enter") {
         e.preventDefault();
         onSubmit();
@@ -234,17 +226,13 @@ const InvestmentGrowthAI = () => {
     inputRef.current.innerHTML = `
       <div class="input-label">Duration (in years):</div>
       <div class="input-row">
-        <input
-          type="number"
-          class="assistant-input"
-          placeholder="Ex: 5, 10, 15"
-        />
+        <input type="number" class="assistant-input" placeholder="Ex: 5, 10, 15"/>
         <button class="primary-btn">Next →</button>
       </div>
     `;
 
-    const input = inputRef.current.querySelector("input");
-    const btn = inputRef.current.querySelector("button");
+    const input = inputRef.current.querySelector("input") as HTMLInputElement;
+    const btn = inputRef.current.querySelector("button") as HTMLButtonElement;
 
     const suggestionRow = document.createElement("div");
     suggestionRow.className = "choice-row";
@@ -266,28 +254,21 @@ const InvestmentGrowthAI = () => {
       const years = Number(raw);
       input.classList.remove("input-error");
 
-      const invalid =
-        !raw || Number.isNaN(years) || years <= 0 || years > 100;
-
+      const invalid = !raw || Number.isNaN(years) || years <= 0 || years > 100;
       if (invalid) {
         invalidAttemptsRef.current.years += 1;
         input.classList.add("input-error");
-
-        if (invalidAttemptsRef.current.years >= 3) {
-          showInlineAlert("Use a valid year count. Ex: 5, 10, 20.");
-          bot("Give me a realistic duration like 5, 10 or 20 years 😌", null);
-        } else {
-          showInlineAlert("Try something like 5, 10 or 15 years.");
-        }
+        invalidAttemptsRef.current.years >= 3
+          ? (showInlineAlert("Use a valid year count. Ex: 5, 10, 20."),
+            bot("Give me a realistic duration like 5, 10 or 20 years 😌"))
+          : showInlineAlert("Try something like 5, 10 or 15 years.");
         return;
       }
 
       if (isSuspiciousYears(years)) {
         input.classList.add("input-error");
-        showInlineAlert(
-          "That’s a very long period. Just make sure this is intentional."
-        );
-        bot("Super long horizon there 😅 Re-enter to confirm or adjust.", null);
+        showInlineAlert("That’s a very long period. Just make sure this is intentional.");
+        bot("Super long horizon there 😅 Re-enter to confirm or adjust.");
         return;
       }
 
@@ -296,15 +277,12 @@ const InvestmentGrowthAI = () => {
       addMsg(`${years} years`, "user");
 
       bot("Love the long-term mindset 🔥", () => {
-        bot(
-          "Now tell me your expected annual return % (like 10, 12 or 15).",
-          () => renderRate()
-        );
+        bot("Now tell me your expected annual return % (like 10, 12 or 15).", () => renderRate());
       });
     };
 
     btn.onclick = onSubmit;
-    input.addEventListener("keydown", (e) => {
+    input.addEventListener("keydown", (e: KeyboardEvent) => {
       if (e.key === "Enter") {
         e.preventDefault();
         onSubmit();
@@ -321,17 +299,13 @@ const InvestmentGrowthAI = () => {
     inputRef.current.innerHTML = `
       <div class="input-label">Expected return (% per year):</div>
       <div class="input-row">
-        <input
-          type="number"
-          class="assistant-input"
-          placeholder="Ex: 10, 12, 15"
-        />
+        <input type="number" class="assistant-input" placeholder="Ex: 10, 12, 15"/>
         <button class="primary-btn">Next →</button>
       </div>
     `;
 
-    const input = inputRef.current.querySelector("input");
-    const btn = inputRef.current.querySelector("button");
+    const input = inputRef.current.querySelector("input") as HTMLInputElement;
+    const btn = inputRef.current.querySelector("button") as HTMLButtonElement;
 
     const suggestionRow = document.createElement("div");
     suggestionRow.className = "choice-row";
@@ -353,31 +327,21 @@ const InvestmentGrowthAI = () => {
       const rate = Number(raw);
       input.classList.remove("input-error");
 
-      const invalid =
-        !raw || Number.isNaN(rate) || rate <= 0 || rate > 100;
-
+      const invalid = !raw || Number.isNaN(rate) || rate <= 0 || rate > 100;
       if (invalid) {
         invalidAttemptsRef.current.rate += 1;
         input.classList.add("input-error");
-
-        if (invalidAttemptsRef.current.rate >= 3) {
-          showInlineAlert("Use a valid % like 8, 10, 12 or 15.");
-          bot("I just need a realistic return % like 10 or 12 📈", null);
-        } else {
-          showInlineAlert("That doesn’t look right. Try 8, 10, 12 or 15.");
-        }
+        invalidAttemptsRef.current.rate >= 3
+          ? (showInlineAlert("Use a valid % like 8, 10, 12 or 15."),
+            bot("I just need a realistic return % like 10 or 12 📈"))
+          : showInlineAlert("That doesn’t look right. Try 8, 10, 12 or 15.");
         return;
       }
 
       if (isSuspiciousRate(rate)) {
         input.classList.add("input-error");
-        showInlineAlert(
-          "This looks very aggressive. Make sure you understand the risk."
-        );
-        bot(
-          "That return is quite high vs normal markets. Re-check before using it 😅",
-          null
-        );
+        showInlineAlert("This looks very aggressive. Make sure you understand the risk.");
+        bot("That return is quite high vs normal markets. Re-check before using it 😅");
         return;
       }
 
@@ -394,7 +358,7 @@ const InvestmentGrowthAI = () => {
     };
 
     btn.onclick = onSubmit;
-    input.addEventListener("keydown", (e) => {
+    input.addEventListener("keydown", (e: KeyboardEvent) => {
       if (e.key === "Enter") {
         e.preventDefault();
         onSubmit();
@@ -416,7 +380,7 @@ const InvestmentGrowthAI = () => {
       </div>
     `;
 
-    const [yesBtn, noBtn] = inputRef.current.querySelectorAll("button");
+    const [yesBtn, noBtn] = inputRef.current.querySelectorAll("button") as NodeListOf<HTMLButtonElement>;
 
     yesBtn.onclick = () => {
       addMsg("Include inflation", "user");
@@ -442,17 +406,13 @@ const InvestmentGrowthAI = () => {
     inputRef.current.innerHTML = `
       <div class="input-label">Inflation (% per year):</div>
       <div class="input-row">
-        <input
-          type="number"
-          class="assistant-input"
-          placeholder="Ex: 4, 5, 6"
-        />
+        <input type="number" class="assistant-input" placeholder="Ex: 4, 5, 6"/>
         <button class="primary-btn">Calculate →</button>
       </div>
     `;
 
-    const input = inputRef.current.querySelector("input");
-    const btn = inputRef.current.querySelector("button");
+    const input = inputRef.current.querySelector("input") as HTMLInputElement;
+    const btn = inputRef.current.querySelector("button") as HTMLButtonElement;
 
     const suggestionRow = document.createElement("div");
     suggestionRow.className = "choice-row";
@@ -474,31 +434,21 @@ const InvestmentGrowthAI = () => {
       const inf = Number(raw);
       input.classList.remove("input-error");
 
-      const invalid =
-        raw === "" || Number.isNaN(inf) || inf < 0 || inf > 40;
-
+      const invalid = raw === "" || Number.isNaN(inf) || inf < 0 || inf > 40;
       if (invalid) {
         invalidAttemptsRef.current.inflation += 1;
         input.classList.add("input-error");
-
-        if (invalidAttemptsRef.current.inflation >= 3) {
-          showInlineAlert("Try a realistic inflation, like 4, 5 or 6.");
-          bot("Most long-term plans use around 4–6% inflation 😌", null);
-        } else {
-          showInlineAlert("That doesn’t look valid. Try 4, 5 or 6.");
-        }
+        invalidAttemptsRef.current.inflation >= 3
+          ? (showInlineAlert("Try a realistic inflation, like 4, 5 or 6."),
+            bot("Most long-term plans use around 4–6% inflation 😌"))
+          : showInlineAlert("That doesn’t look valid. Try 4, 5 or 6.");
         return;
       }
 
       if (isSuspiciousInflation(inf)) {
         input.classList.add("input-error");
-        showInlineAlert(
-          "That’s very high inflation. Please double-check your input."
-        );
-        bot(
-          "Extremely high inflation is rare for long periods. Only use this if you’re stress-testing 🧪",
-          null
-        );
+        showInlineAlert("That’s very high inflation. Please double-check your input.");
+        bot("Extremely high inflation is rare for long periods. Only use this if you’re stress-testing 🧪");
         return;
       }
 
@@ -510,7 +460,7 @@ const InvestmentGrowthAI = () => {
     };
 
     btn.onclick = onSubmit;
-    input.addEventListener("keydown", (e) => {
+    input.addEventListener("keydown", (e: KeyboardEvent) => {
       if (e.key === "Enter") {
         e.preventDefault();
         onSubmit();
@@ -524,9 +474,8 @@ const InvestmentGrowthAI = () => {
     const { mode, amount, years, rate, inflation } = dataRef.current;
 
     if (!mode || !amount || !years || !rate) {
-      bot(
-        "Hmm, some inputs look incomplete. To avoid wrong numbers, let’s restart fresh 🙂",
-        () => startFresh()
+      bot("Hmm, some inputs look incomplete. To avoid wrong numbers, let’s restart fresh 🙂", () =>
+        startFresh()
       );
       return;
     }
@@ -539,12 +488,7 @@ const InvestmentGrowthAI = () => {
     let invested = 0;
 
     if (mode === "sip") {
-      if (r === 0) {
-        future = amount * months;
-      } else {
-        future =
-          amount * ((Math.pow(1 + r, months) - 1) / r) * (1 + r);
-      }
+      future = r === 0 ? amount * months : amount * ((Math.pow(1 + r, months) - 1) / r) * (1 + r);
       invested = amount * months;
     } else {
       future = amount * Math.pow(1 + R, years);
@@ -552,11 +496,8 @@ const InvestmentGrowthAI = () => {
     }
 
     const wealthGain = future - invested;
-
     const realFuture =
-      inflation && inflation > 0
-        ? future / Math.pow(1 + inflation / 100, years)
-        : null;
+      inflation && inflation > 0 ? future / Math.pow(1 + inflation / 100, years) : null;
 
     bot("Alright, crunching your numbers now… 🧮", () => {
       const modeLabel = mode === "sip" ? "Monthly SIP" : "Lump Sum";
@@ -568,25 +509,17 @@ const InvestmentGrowthAI = () => {
             </div>
             <div class="result-pill">${modeLabel}</div>
           </div>
-
           <div class="result-amount">
-            ₹${future.toLocaleString("en-IN", {
-              maximumFractionDigits: 2,
-            })}
+            ₹${future.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
           </div>
-
           <div class="result-breakdown">
             <div class="result-breakdown-row">
               <span>Total invested</span>
-              <span>₹${invested.toLocaleString("en-IN", {
-                maximumFractionDigits: 2,
-              })}</span>
+              <span>₹${invested.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
             </div>
             <div class="result-breakdown-row">
-              <span>Wealth created (before inflation)</span>
-              <span>₹${wealthGain.toLocaleString("en-IN", {
-                maximumFractionDigits: 2,
-              })}</span>
+              <span>Wealth created</span>
+              <span>₹${wealthGain.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
             </div>
             <div class="result-breakdown-row">
               <span>Duration</span>
@@ -601,14 +534,11 @@ const InvestmentGrowthAI = () => {
                 ? `
             <div class="result-breakdown-row">
               <span>Inflation-adjusted value</span>
-              <span>₹${realFuture.toLocaleString("en-IN", {
-                maximumFractionDigits: 2,
-              })}</span>
+              <span>₹${realFuture.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
             </div>`
                 : ""
             }
           </div>
-
           <div class="result-highlight">
             You’re letting compounding do the heavy lifting 🧠💸
             Keep the discipline, and this future number can become your reality.
@@ -619,10 +549,7 @@ const InvestmentGrowthAI = () => {
       addMsg(resultCardHTML, "ai", true);
 
       setTimeout(() => {
-        addMsg(
-          "Want to try a different combo? We can tweak amount, years or returns anytime 😄",
-          "ai"
-        );
+        addMsg("Want to try a different combo? We can tweak amount, years or returns anytime 😄", "ai");
       }, 600);
 
       setTimeout(() => renderRestart(), 900);
@@ -639,7 +566,8 @@ const InvestmentGrowthAI = () => {
         <button class="primary-btn">Run another scenario 🔁</button>
       </div>
     `;
-    const btn = inputRef.current.querySelector("button");
+
+    const btn = inputRef.current.querySelector("button") as HTMLButtonElement;
     btn.onclick = () => startFresh();
   };
 
@@ -670,7 +598,6 @@ const InvestmentGrowthAI = () => {
     return () => {
       if (typingRef.current) clearTimeout(typingRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // --------- shell ---------
@@ -683,7 +610,6 @@ const InvestmentGrowthAI = () => {
             <span className="assistant-name">MoneyGrow Engine</span>
             <span className="assistant-tag">Openroot — Financial Intelligence Module</span>
           </div>
-
           <div ref={chatRef} className="chat-window" />
           <div ref={inputRef} className="input-area" />
         </section>
@@ -696,8 +622,7 @@ const InvestmentGrowthAI = () => {
             <li>Shows growth + inflation impact clearly</li>
           </ul>
           <p className="info-note">
-            You focus on{" "}
-            <span>good decisions</span>, I’ll handle the number crunching.
+            You focus on <span>good decisions</span>, I’ll handle the number crunching.
           </p>
         </aside>
       </main>

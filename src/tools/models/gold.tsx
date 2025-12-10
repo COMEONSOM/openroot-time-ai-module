@@ -1,19 +1,51 @@
 import React, { useRef, useEffect } from "react";
 
-const GoldAI = () => {
-  const chatWindowRef = useRef(null);
-  const inputAreaRef = useRef(null);
-  const modalOverlayRef = useRef(null);
+type StepId = "carat" | "weight" | "rate" | "making";
 
-  const typingTimeoutRef = useRef(null);
-  const answersRef = useRef({
+interface Answers {
+  carat: number | null;
+  weight: number | null;
+  rate: number | null;
+  making: number | null;
+}
+
+type StepType = "choice" | "number";
+
+interface ChoiceOption {
+  value: number;
+  label: string;
+  note?: string;
+}
+
+interface Step {
+  id: StepId;
+  label: string;
+  type: StepType;
+  options?: ChoiceOption[];
+  placeholder?: string;
+  min?: number;
+}
+
+interface SuspiciousPending {
+  stepId: StepId;
+  value: number;
+}
+
+const GoldAI: React.FC = () => {
+  const chatWindowRef = useRef<HTMLDivElement | null>(null);
+  const inputAreaRef = useRef<HTMLDivElement | null>(null);
+  const modalOverlayRef = useRef<HTMLDivElement | null>(null);
+
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const answersRef = useRef<Answers>({
     carat: null,
     weight: null,
     rate: null,
     making: null,
   });
 
-  const stepsRef = useRef([
+  const stepsRef = useRef<Step[]>([
     {
       id: "carat",
       label: "First, what gold purity are you buying today?",
@@ -49,37 +81,40 @@ const GoldAI = () => {
     },
   ]);
 
-  const currentStepIndexRef = useRef(0);
-  const invalidAttemptsRef = useRef({
+  const currentStepIndexRef = useRef<number>(0);
+
+  // keep as loose map because we only track some stepIds here
+  const invalidAttemptsRef = useRef<Record<string, number>>({
     weight: 0,
     rate: 0,
     making: 0,
   });
-  const pendingSuspiciousRef = useRef(null);
+
+  const pendingSuspiciousRef = useRef<SuspiciousPending | null>(null);
 
   // --------- UTILITIES ---------
 
-  function scrollToBottom() {
+  function scrollToBottom(): void {
     const chatWindow = chatWindowRef.current;
     if (!chatWindow) return;
     chatWindow.scrollTop = chatWindow.scrollHeight;
   }
 
-  function clearInlineAlert() {
+  function clearInlineAlert(): void {
     const inputArea = inputAreaRef.current;
     if (!inputArea) return;
-    const alert = inputArea.querySelector(".inline-alert");
+    const alert = inputArea.querySelector(".inline-alert") as HTMLElement | null;
     if (alert) alert.remove();
   }
 
-  function hideTypingIndicator() {
+  function hideTypingIndicator(): void {
     const chatWindow = chatWindowRef.current;
     if (!chatWindow) return;
-    const row = chatWindow.querySelector("#typing-row");
+    const row = chatWindow.querySelector("#typing-row") as HTMLElement | null;
     if (row) row.remove();
   }
 
-  function showTypingIndicator() {
+  function showTypingIndicator(): void {
     const chatWindow = chatWindowRef.current;
     if (!chatWindow) return;
 
@@ -103,7 +138,11 @@ const GoldAI = () => {
     scrollToBottom();
   }
 
-  function addMessage(text, sender = "ai", isHTML = false) {
+  function addMessage(
+    text: string,
+    sender: "ai" | "user" = "ai",
+    isHTML = false
+  ): void {
     const chatWindow = chatWindowRef.current;
     if (!chatWindow) return;
 
@@ -125,7 +164,10 @@ const GoldAI = () => {
     scrollToBottom();
   }
 
-  function delayedAIMessage(text, callback) {
+  function delayedAIMessage(
+    text: string,
+    callback: (() => void) | null | undefined
+  ): void {
     hideTypingIndicator();
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
@@ -141,7 +183,7 @@ const GoldAI = () => {
 
   // --------- SUSPICIOUS CHECK ---------
 
-  function isSuspiciousValue(stepId, value) {
+  function isSuspiciousValue(stepId: StepId, value: number): boolean {
     const answers = answersRef.current;
 
     if (stepId === "weight") {
@@ -167,7 +209,7 @@ const GoldAI = () => {
 
   // --------- STEP RENDERING ---------
 
-  function renderStep() {
+  function renderStep(): void {
     const steps = stepsRef.current;
     const inputArea = inputAreaRef.current;
     if (!inputArea) return;
@@ -192,7 +234,7 @@ const GoldAI = () => {
       const row = document.createElement("div");
       row.className = "choice-row";
 
-      step.options.forEach((opt) => {
+      step.options!.forEach((opt) => {
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "choice-btn";
@@ -201,7 +243,7 @@ const GoldAI = () => {
         btn.addEventListener("click", () => {
           const allBtns = row.querySelectorAll("button");
           allBtns.forEach((b) => {
-            b.disabled = true;
+            (b as HTMLButtonElement).disabled = true;
             b.classList.add("disabled-btn");
           });
           handleChoiceAnswer(step.id, opt.value, opt.label);
@@ -235,7 +277,7 @@ const GoldAI = () => {
       };
 
       btn.addEventListener("click", onSubmit);
-      input.addEventListener("keydown", (e) => {
+      input.addEventListener("keydown", (e: KeyboardEvent) => {
         if (e.key === "Enter") {
           e.preventDefault();
           onSubmit();
@@ -266,14 +308,21 @@ const GoldAI = () => {
 
   // --------- HANDLERS ---------
 
-  function handleChoiceAnswer(id, value, label) {
+  function handleChoiceAnswer(id: StepId, value: number, label: string): void {
     const answers = answersRef.current;
     answers[id] = Number(value);
     addMessage(label, "user");
     goToNextStep();
   }
 
-  function handleNumberAnswer(stepId, rawValue, minVal, inputEl, btnEl) {
+
+  function handleNumberAnswer(
+    stepId: StepId,
+    rawValue: string,
+    minVal: number | undefined,
+    inputEl: HTMLInputElement,
+    btnEl: HTMLButtonElement
+  ): void {
     clearInlineAlert();
     inputEl.classList.remove("input-error");
 
@@ -302,7 +351,11 @@ const GoldAI = () => {
     acceptValueAndContinue(stepId, numeric);
   }
 
-  function handleInvalidNumber(stepId, inputEl, btnEl) {
+  function handleInvalidNumber(
+    stepId: StepId,
+    inputEl: HTMLInputElement,
+    btnEl: HTMLButtonElement
+  ): void {
     const invalidAttempts = invalidAttemptsRef.current;
     invalidAttempts[stepId] = (invalidAttempts[stepId] || 0) + 1;
 
@@ -334,7 +387,7 @@ const GoldAI = () => {
     btnEl.classList.remove("disabled-btn");
   }
 
-  function beginSuspiciousFlow(stepId, value) {
+  function beginSuspiciousFlow(stepId: StepId, value: number): void {
     pendingSuspiciousRef.current = { stepId, value };
 
     delayedAIMessage(
@@ -345,7 +398,7 @@ const GoldAI = () => {
     );
   }
 
-  function renderInlineSuspicionControls() {
+  function renderInlineSuspicionControls(): void {
     const inputArea = inputAreaRef.current;
     if (!inputArea) return;
 
@@ -397,19 +450,19 @@ const GoldAI = () => {
 
   // --------- MODAL ---------
 
-  function openSuspicionModal() {
+  function openSuspicionModal(): void {
     const modal = modalOverlayRef.current;
     if (!modal) return;
     modal.classList.remove("hidden");
   }
 
-  function closeSuspicionModal() {
+  function closeSuspicionModal(): void {
     const modal = modalOverlayRef.current;
     if (!modal) return;
     modal.classList.add("hidden");
   }
 
-  function handleModalProceed() {
+  function handleModalProceed(): void {
     const pending = pendingSuspiciousRef.current;
     if (!pending) {
       closeSuspicionModal();
@@ -428,9 +481,10 @@ const GoldAI = () => {
     );
   }
 
-  function handleModalEdit() {
+  function handleModalEdit(): void {
     const pending = pendingSuspiciousRef.current;
     const stepId = pending ? pending.stepId : null;
+    // stepId is intentionally unused, keeping original logic
     pendingSuspiciousRef.current = null;
     closeSuspicionModal();
 
@@ -441,7 +495,7 @@ const GoldAI = () => {
 
   // --------- FLOW CONTROL ---------
 
-  function acceptValueAndContinue(stepId, numeric) {
+  function acceptValueAndContinue(stepId: StepId, numeric: number): void {
     const answers = answersRef.current;
     const invalidAttempts = invalidAttemptsRef.current;
 
@@ -451,7 +505,8 @@ const GoldAI = () => {
     goToNextStep();
   }
 
-  function goToNextStep() {
+
+  function goToNextStep(): void {
     const steps = stepsRef.current;
     currentStepIndexRef.current += 1;
 
@@ -467,7 +522,7 @@ const GoldAI = () => {
 
   // --------- CALCULATION ---------
 
-  function calculateAndShowResult() {
+  function calculateAndShowResult(): void {
     const answers = answersRef.current;
     const { carat, weight, rate, making } = answers;
 
@@ -488,7 +543,7 @@ const GoldAI = () => {
     const gstAmount = subtotal * gstRate;
     const grandTotal = subtotal + gstAmount;
 
-    const formatINR = (val) =>
+    const formatINR = (val: number): string =>
       val.toLocaleString("en-IN", {
         style: "currency",
         currency: "INR",
@@ -551,7 +606,7 @@ const GoldAI = () => {
     });
   }
 
-  function renderRestartButton() {
+  function renderRestartButton(): void {
     const inputArea = inputAreaRef.current;
     if (!inputArea) return;
 
@@ -598,7 +653,7 @@ const GoldAI = () => {
 
   // --------- INITIAL GREETING ---------
 
-  function startConversation() {
+  function startConversation(): void {
     delayedAIMessage(
       "Hi, I’m your Openroot Gold AI assistant. I’ll ask you a few quick questions and then show a transparent price breakdown for your jewellery.",
       () => {
@@ -629,18 +684,27 @@ const GoldAI = () => {
   return (
     <>
       <div className="page-wrapper">
-
         <main className="main-layout">
           <section className="assistant-card">
             <div className="assistant-header">
               <div className="status-dot"></div>
               <span className="assistant-name">Midas Engine</span>
-              <span className="assistant-tag">Openroot — Financial Intelligence Module</span>
+              <span className="assistant-tag">
+                Openroot — Financial Intelligence Module
+              </span>
             </div>
 
-            <div id="chat-window" ref={chatWindowRef} className="chat-window" />
+            <div
+              id="chat-window"
+              ref={chatWindowRef}
+              className="chat-window"
+            />
 
-            <div id="input-area" ref={inputAreaRef} className="input-area" />
+            <div
+              id="input-area"
+              ref={inputAreaRef}
+              className="input-area"
+            />
           </section>
 
           <aside className="info-card">
@@ -691,10 +755,6 @@ const GoldAI = () => {
           </div>
         </div>
       </div>
-
-      <footer className="site-footer">
-        <p>© 2025 Openroot Financial Systems. All rights reserved.</p>
-      </footer>
     </>
   );
 };

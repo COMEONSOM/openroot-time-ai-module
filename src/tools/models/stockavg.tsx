@@ -1,13 +1,19 @@
-// src/tools/models/stockavg.jsx
 import React, { useRef, useEffect } from "react";
 
-const StockAI = () => {
-  const chatRef = useRef(null);
-  const inputRef = useRef(null);
-  const typingTimeoutRef = useRef(null);
+type Trade = {
+  qty: number;
+  price: number;
+};
 
-  const positionsRef = useRef([]); // [{ qty, price }]
-  const pendingQtyRef = useRef(null);
+const StockAI: React.FC = () => {
+  // DOM refs
+  const chatRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLDivElement | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Data refs
+  const positionsRef = useRef<Trade[]>([]);
+  const pendingQtyRef = useRef<number | null>(null);
 
   const invalidAttemptsRef = useRef({
     qty: 0,
@@ -27,7 +33,7 @@ const StockAI = () => {
     if (alert) alert.remove();
   };
 
-  const addMsg = (text, sender = "ai", isHTML = false) => {
+  const addMsg = (text: string, sender: "ai" | "user" = "ai", isHTML = false) => {
     if (!chatRef.current) return;
 
     const row = document.createElement("div");
@@ -38,7 +44,6 @@ const StockAI = () => {
       "message " + (sender === "ai" ? "ai-message" : "user-message");
 
     if (isHTML) {
-      // Only for safe internal templates
       bubble.innerHTML = text;
     } else {
       bubble.textContent = text;
@@ -49,10 +54,9 @@ const StockAI = () => {
     scroll();
   };
 
-  const bot = (text, cb) => {
+  const bot = (text: string, cb?: () => void) => {
     if (!chatRef.current) return;
 
-    // Remove old typing
     const old = chatRef.current.querySelector("#typing");
     if (old) old.remove();
 
@@ -81,7 +85,7 @@ const StockAI = () => {
     }, 650);
   };
 
-  const showInlineError = (msg) => {
+  const showInlineError = (msg: string) => {
     clearAlert();
     if (!inputRef.current) return;
     const div = document.createElement("div");
@@ -90,14 +94,14 @@ const StockAI = () => {
     inputRef.current.appendChild(div);
   };
 
-  const invalidQty = (qty) =>
+  const invalidQty = (qty: number) =>
     !qty || Number.isNaN(qty) || qty <= 0 || !Number.isInteger(qty);
 
-  const invalidPrice = (price) =>
+  const invalidPrice = (price: number) =>
     !price || Number.isNaN(price) || price <= 0;
 
-  const suspiciousQty = (qty) => qty > 500000;
-  const suspiciousPrice = (price) => price < 0.5 || price > 500000;
+  const suspiciousQty = (qty: number) => qty > 500000;
+  const suspiciousPrice = (price: number) => price < 0.5 || price > 500000;
 
   // ---------------- STEP 1 — QUANTITY ----------------
 
@@ -117,8 +121,8 @@ const StockAI = () => {
       </div>
     `;
 
-    const input = inputRef.current.querySelector("input");
-    const btn = inputRef.current.querySelector("button");
+    const input = inputRef.current.querySelector("input") as HTMLInputElement;
+    const btn = inputRef.current.querySelector("button") as HTMLButtonElement;
 
     const submit = () => {
       const raw = String(input.value || "").trim();
@@ -133,11 +137,9 @@ const StockAI = () => {
           "Quantity must be a positive whole number like 10, 50 or 200."
         );
 
-        // Only send a coach message once or twice to avoid flooding
         if (invalidAttemptsRef.current.qty === 2) {
           bot(
-            "For quantity, think in whole shares only — 10, 25, 200 etc.",
-            null
+            "For quantity, think in whole shares only — 10, 25, 200 etc."
           );
         }
         return;
@@ -150,8 +152,7 @@ const StockAI = () => {
         );
         if (invalidAttemptsRef.current.qty < 2) {
           bot(
-            "That’s a big number of shares. Just confirm it once before we go ahead. ⚠️",
-            null
+            "That’s a big number of shares. Just confirm it once before we go ahead. ⚠️"
           );
         }
         invalidAttemptsRef.current.qty += 1;
@@ -170,7 +171,7 @@ const StockAI = () => {
     };
 
     btn.onclick = submit;
-    input.addEventListener("keydown", (e) => {
+    input.addEventListener("keydown", (e: KeyboardEvent) => {
       if (e.key === "Enter") {
         e.preventDefault();
         submit();
@@ -198,8 +199,8 @@ const StockAI = () => {
       </div>
     `;
 
-    const input = inputRef.current.querySelector("input");
-    const btn = inputRef.current.querySelector("button");
+    const input = inputRef.current.querySelector("input") as HTMLInputElement;
+    const btn = inputRef.current.querySelector("button") as HTMLButtonElement;
 
     const submit = () => {
       const raw = String(input.value || "").trim();
@@ -216,8 +217,7 @@ const StockAI = () => {
 
         if (invalidAttemptsRef.current.price === 2) {
           bot(
-            "Use the per-share price you see on your contract note or app — just one number per trade. 🙂",
-            null
+            "Use the per-share price you see on your contract note or app — just one number per trade. 🙂"
           );
         }
         return;
@@ -230,8 +230,7 @@ const StockAI = () => {
         );
         if (invalidAttemptsRef.current.price < 2) {
           bot(
-            "That level looks a bit extreme compared to usual equity prices. Double-check and re-enter if needed. ⚠️",
-            null
+            "That level looks a bit extreme compared to usual equity prices. Double-check and re-enter if needed. ⚠️"
           );
         }
         invalidAttemptsRef.current.price += 1;
@@ -255,6 +254,7 @@ const StockAI = () => {
       });
       pendingQtyRef.current = null;
 
+
       const legIndex = positionsRef.current.length;
       bot(`Trade ${legIndex} added. 👍`, () => {
         bot("Do you want to add another trade for this same stock?", () =>
@@ -264,7 +264,7 @@ const StockAI = () => {
     };
 
     btn.onclick = submit;
-    input.addEventListener("keydown", (e) => {
+    input.addEventListener("keydown", (e: KeyboardEvent) => {
       if (e.key === "Enter") {
         e.preventDefault();
         submit();
@@ -288,7 +288,7 @@ const StockAI = () => {
       </div>
     `;
 
-    const [yesBtn, noBtn] = inputRef.current.querySelectorAll("button");
+    const [yesBtn, noBtn] = inputRef.current.querySelectorAll("button") as NodeListOf<HTMLButtonElement>;
 
     yesBtn.onclick = () => {
       addMsg("I have another trade to add.", "user");
@@ -404,7 +404,7 @@ const StockAI = () => {
         <button class="primary-btn">Start a new calculation</button>
       </div>
     `;
-    const btn = inputRef.current.querySelector("button");
+    const btn = inputRef.current.querySelector("button") as HTMLButtonElement;
     btn.onclick = () => startFresh();
   };
 

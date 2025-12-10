@@ -1,9 +1,44 @@
 import React, { useRef, useEffect } from "react";
-import { Chart, ArcElement, Tooltip, Legend, DoughnutController } from "chart.js";
+import {
+  Chart,
+  ArcElement,
+  Tooltip,
+  Legend,
+  DoughnutController,
+} from "chart.js";
 Chart.register(ArcElement, Tooltip, Legend, DoughnutController);
 
-const INITIAL_DATA = {
-  flow: null, // "standard" | "nocost" | "mindue"
+// ---------- TYPES ----------
+
+type Flow = "standard" | "nocost" | "mindue" | null;
+
+interface CreditEmiData {
+  flow: Flow;
+  amount: number | null;
+  rate: number | null;
+  months: number | null;
+  fee: number;
+  emi: number | null;
+  upfrontPrice: number | null;
+  minPercent: number | null;
+  apr: number | null;
+  monthsMin: number | null;
+}
+
+interface InvalidState {
+  amount: number;
+  rate: number;
+  months: number;
+  fee: number;
+  emi: number;
+  upfrontPrice: number;
+  minPercent: number;
+  apr: number;
+  monthsMin: number;
+}
+
+const INITIAL_DATA: CreditEmiData = {
+  flow: null,
   // shared / standard
   amount: null,
   rate: null,
@@ -18,13 +53,13 @@ const INITIAL_DATA = {
   monthsMin: null,
 };
 
-const CreditEmiAI = () => {
-  const chatRef = useRef(null);
-  const inputRef = useRef(null);
-  const typingRef = useRef(null);
+const CreditEmiAI: React.FC = () => {
+  const chatRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLDivElement | null>(null);
+  const typingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const dataRef = useRef({ ...INITIAL_DATA });
-  const invalidRef = useRef({
+  const dataRef = useRef<CreditEmiData>({ ...INITIAL_DATA });
+  const invalidRef = useRef<InvalidState>({
     amount: 0,
     rate: 0,
     months: 0,
@@ -38,18 +73,20 @@ const CreditEmiAI = () => {
 
   // -------------- helpers --------------
 
-  const scrollToBottom = () => {
+  const scrollToBottom = (): void => {
     const el = chatRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   };
 
-  const clearInlineAlert = () => {
+  const clearInlineAlert = (): void => {
     if (!inputRef.current) return;
-    const alert = inputRef.current.querySelector(".inline-alert");
+    const alert = inputRef.current.querySelector(
+      ".inline-alert"
+    ) as HTMLElement | null;
     if (alert) alert.remove();
   };
 
-  const showInlineAlert = (text) => {
+  const showInlineAlert = (text: string): void => {
     clearInlineAlert();
     if (!inputRef.current) return;
     const div = document.createElement("div");
@@ -58,7 +95,11 @@ const CreditEmiAI = () => {
     inputRef.current.appendChild(div);
   };
 
-  const addMsg = (txt, sender = "ai", isHTML = false) => {
+  const addMsg = (
+    txt: string,
+    sender: "ai" | "user" = "ai",
+    isHTML = false
+  ): void => {
     if (!chatRef.current) return;
     const row = document.createElement("div");
     row.className = `message-row ${sender}`;
@@ -78,7 +119,14 @@ const CreditEmiAI = () => {
     scrollToBottom();
   };
 
-  const showChartBubble = (principal, interest, fee, gst) => {
+  const showChartBubble = (
+    principal: number,
+    interest: number,
+    fee: number,
+    gst: number
+  ): void => {
+    if (!chatRef.current) return;
+
     const row = document.createElement("div");
     row.className = "message-row ai";
 
@@ -87,7 +135,7 @@ const CreditEmiAI = () => {
 
     bubble.innerHTML = `
         <div style="width: 240px; height: 240px; margin:auto;">
-        <canvas id="chatPieChart"></canvas>
+          <canvas id="chatPieChart"></canvas>
         </div>
     `;
 
@@ -96,44 +144,46 @@ const CreditEmiAI = () => {
     scrollToBottom();
 
     setTimeout(() => {
-        const canvas = document.getElementById("chatPieChart");
-        if (!canvas) return;
-        const ctx = canvas.getContext("2d");
+      const canvas = document.getElementById(
+        "chatPieChart"
+      ) as HTMLCanvasElement | null;
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
 
-        new Chart(ctx, {
+      new Chart(ctx, {
         type: "doughnut",
         data: {
-            labels: ["Principal", "Interest", "Fee", "GST"],
-            datasets: [
+          labels: ["Principal", "Interest", "Fee", "GST"],
+          datasets: [
             {
-                data: [principal, interest, fee, gst],
-                backgroundColor: [
+              data: [principal, interest, fee, gst],
+              backgroundColor: [
                 "#4f46e5", // principal
                 "#f97316", // interest
                 "#10b981", // fee
-                "#e11d48"  // GST
-                ],
-                borderWidth: 0
-            }
-            ]
+                "#e11d48", // GST
+              ],
+              borderWidth: 0,
+            },
+          ],
         },
         options: {
-            cutout: "65%",
-            plugins: {
-            legend: { display: true, position: "bottom" }
-            }
-        }
-        });
+          cutout: "65%",
+          plugins: {
+            legend: { display: true, position: "bottom" },
+          },
+        },
+      });
 
-        scrollToBottom();
+      scrollToBottom();
     }, 150);
-    };
+  };
 
-
-  const bot = (txt, cb) => {
+  const bot = (txt: string, cb?: () => void): void => {
     if (!chatRef.current) return;
 
-    const old = chatRef.current.querySelector("#typing");
+    const old = chatRef.current.querySelector("#typing") as HTMLDivElement | null;
     if (old) old.remove();
 
     const row = document.createElement("div");
@@ -151,21 +201,23 @@ const CreditEmiAI = () => {
     if (typingRef.current) clearTimeout(typingRef.current);
 
     typingRef.current = setTimeout(() => {
-      const still = chatRef.current?.querySelector("#typing");
+      const still = chatRef.current?.querySelector(
+        "#typing"
+      ) as HTMLDivElement | null;
       if (still) still.remove();
       addMsg(txt, "ai");
-      cb && cb();
+      if (cb) cb();
     }, 650);
   };
 
-  const isSuspiciousAmount = (v) => v > 5_000_000; // > 50L
-  const isSuspiciousRate = (v) => v > 60;
-  const isSuspiciousMonths = (v) => v > 120;
-  const isSuspiciousMinPercent = (v) => v > 20; // min due > 20% is weird
+  const isSuspiciousAmount = (v: number): boolean => v > 5_000_000; // > 50L
+  const isSuspiciousRate = (v: number): boolean => v > 60;
+  const isSuspiciousMonths = (v: number): boolean => v > 120;
+  const isSuspiciousMinPercent = (v: number): boolean => v > 20; // min due > 20% is weird
 
   // -------------- flow select --------------
 
-  const renderFlowSelect = () => {
+  const renderFlowSelect = (): void => {
     clearInlineAlert();
     if (!inputRef.current) return;
 
@@ -180,8 +232,10 @@ const CreditEmiAI = () => {
       </div>
     `;
 
-    const [stdBtn, noCostBtn, minBtn] =
-      inputRef.current.querySelectorAll("button");
+    const buttons = inputRef.current.querySelectorAll(
+      "button"
+    ) as NodeListOf<HTMLButtonElement>;
+    const [stdBtn, noCostBtn, minBtn] = buttons;
 
     stdBtn.onclick = () => {
       dataRef.current = { ...INITIAL_DATA, flow: "standard" };
@@ -196,27 +250,33 @@ const CreditEmiAI = () => {
     noCostBtn.onclick = () => {
       dataRef.current = { ...INITIAL_DATA, flow: "nocost" };
       addMsg("No-Cost EMI reality check", "user");
-      bot("Nice. Let’s see if it’s truly ‘no-cost’ or hiding extra interest 👀", () => {
-        bot("What’s the product price used for EMI? (₹)", () =>
-          renderNoCostAmount()
-        );
-      });
+      bot(
+        "Nice. Let’s see if it’s truly ‘no-cost’ or hiding extra interest 👀",
+        () => {
+          bot("What’s the product price used for EMI? (₹)", () =>
+            renderNoCostAmount()
+          );
+        }
+      );
     };
 
     minBtn.onclick = () => {
       dataRef.current = { ...INITIAL_DATA, flow: "mindue" };
       addMsg("Minimum-due impact", "user");
-      bot("Okay, we’ll see what happens if you only pay minimum due 😬", () => {
-        bot("What’s your current credit card bill amount? (₹)", () =>
-          renderMinDueBalance()
-        );
-      });
+      bot(
+        "Okay, we’ll see what happens if you only pay minimum due 😬",
+        () => {
+          bot("What’s your current credit card bill amount? (₹)", () =>
+            renderMinDueBalance()
+          );
+        }
+      );
     };
   };
 
   // -------------- STANDARD EMI FLOW --------------
 
-  const renderStandardAmount = () => {
+  const renderStandardAmount = (): void => {
     clearInlineAlert();
     if (!inputRef.current) return;
 
@@ -228,10 +288,10 @@ const CreditEmiAI = () => {
       </div>
     `;
 
-    const input = inputRef.current.querySelector("input");
-    const btn = inputRef.current.querySelector("button");
+    const input = inputRef.current.querySelector("input") as HTMLInputElement;
+    const btn = inputRef.current.querySelector("button") as HTMLButtonElement;
 
-    const onSubmit = () => {
+    const onSubmit = (): void => {
       const raw = String(input.value || "").trim();
       const amount = Number(raw);
       input.classList.remove("input-error");
@@ -244,7 +304,7 @@ const CreditEmiAI = () => {
         input.classList.add("input-error");
         if (invalidRef.current.amount >= 3) {
           showInlineAlert("Use a realistic amount like 15000 or 50000.");
-          bot("Just need a valid purchase amount in rupees 😊", null);
+          bot("Just need a valid purchase amount in rupees 😊");
         } else {
           showInlineAlert("That doesn’t look valid. Try something like 15000.");
         }
@@ -254,7 +314,7 @@ const CreditEmiAI = () => {
       if (isSuspiciousAmount(amount)) {
         input.classList.add("input-error");
         showInlineAlert("That’s a very large amount for a card. Check the zeros.");
-        bot("Big swipe there 😅 Re-check and re-enter if correct.", null);
+        bot("Big swipe there 😅 Re-check and re-enter if correct.");
         return;
       }
 
@@ -262,13 +322,14 @@ const CreditEmiAI = () => {
       dataRef.current.amount = amount;
       addMsg(`₹${amount.toLocaleString("en-IN")}`, "user");
 
-      bot("Cool. Next, what interest rate has the bank offered? (% per year)", () =>
-        renderStandardRate()
+      bot(
+        "Cool. Next, what interest rate has the bank offered? (% per year)",
+        () => renderStandardRate()
       );
     };
 
     btn.onclick = onSubmit;
-    input.addEventListener("keydown", (e) => {
+    input.addEventListener("keydown", (e: KeyboardEvent) => {
       if (e.key === "Enter") {
         e.preventDefault();
         onSubmit();
@@ -278,7 +339,7 @@ const CreditEmiAI = () => {
     setTimeout(() => input.focus(), 80);
   };
 
-  const renderStandardRate = () => {
+  const renderStandardRate = (): void => {
     clearInlineAlert();
     if (!inputRef.current) return;
 
@@ -290,23 +351,22 @@ const CreditEmiAI = () => {
       </div>
     `;
 
-    const input = inputRef.current.querySelector("input");
-    const btn = inputRef.current.querySelector("button");
+    const input = inputRef.current.querySelector("input") as HTMLInputElement;
+    const btn = inputRef.current.querySelector("button") as HTMLButtonElement;
 
-    const onSubmit = () => {
+    const onSubmit = (): void => {
       const raw = String(input.value || "").trim();
       const rate = Number(raw);
       input.classList.remove("input-error");
 
-      const invalid =
-        !raw || Number.isNaN(rate) || rate <= 0 || rate > 100;
+      const invalid = !raw || Number.isNaN(rate) || rate <= 0 || rate > 100;
 
       if (invalid) {
         invalidRef.current.rate++;
         input.classList.add("input-error");
         if (invalidRef.current.rate >= 3) {
           showInlineAlert("Use a valid % like 13, 18 or 24.");
-          bot("Most Indian credit cards sit between 18–42% p.a. 👀", null);
+          bot("Most Indian credit cards sit between 18–42% p.a. 👀");
         } else {
           showInlineAlert("That doesn’t look right. Try 15.75 or 18.");
         }
@@ -316,7 +376,10 @@ const CreditEmiAI = () => {
       if (isSuspiciousRate(rate)) {
         input.classList.add("input-error");
         showInlineAlert("That rate is extremely high. Check if it’s correct.");
-        bot("This looks very aggressive. Make sure this is really your card rate 😬", null);
+        bot(
+          "This looks very aggressive. Make sure this is really your card rate 😬",
+          
+        );
         return;
       }
 
@@ -330,7 +393,7 @@ const CreditEmiAI = () => {
     };
 
     btn.onclick = onSubmit;
-    input.addEventListener("keydown", (e) => {
+    input.addEventListener("keydown", (e: KeyboardEvent) => {
       if (e.key === "Enter") {
         e.preventDefault();
         onSubmit();
@@ -340,7 +403,7 @@ const CreditEmiAI = () => {
     setTimeout(() => input.focus(), 80);
   };
 
-  const renderStandardMonths = () => {
+  const renderStandardMonths = (): void => {
     clearInlineAlert();
     if (!inputRef.current) return;
 
@@ -352,10 +415,10 @@ const CreditEmiAI = () => {
       </div>
     `;
 
-    const input = inputRef.current.querySelector("input");
-    const btn = inputRef.current.querySelector("button");
+    const input = inputRef.current.querySelector("input") as HTMLInputElement;
+    const btn = inputRef.current.querySelector("button") as HTMLButtonElement;
 
-    const onSubmit = () => {
+    const onSubmit = (): void => {
       const raw = String(input.value || "").trim();
       const months = Number(raw);
       input.classList.remove("input-error");
@@ -368,7 +431,10 @@ const CreditEmiAI = () => {
         input.classList.add("input-error");
         if (invalidRef.current.months >= 3) {
           showInlineAlert("Try a valid EMI period like 3, 6, 9 or 12 months.");
-          bot("Shorter EMI = less interest, longer EMI = smaller monthly hit.", null);
+          bot(
+            "Shorter EMI = less interest, longer EMI = smaller monthly hit.",
+            
+          );
         } else {
           showInlineAlert("That doesn’t look valid. Try 3–24 months.");
         }
@@ -378,7 +444,10 @@ const CreditEmiAI = () => {
       if (isSuspiciousMonths(months)) {
         input.classList.add("input-error");
         showInlineAlert("That’s a very long tenure for a credit card EMI.");
-        bot("Credit card EMIs are usually short. Re-check your tenure 🙂", null);
+        bot(
+          "Credit card EMIs are usually short. Re-check your tenure 🙂",
+          
+        );
         return;
       }
 
@@ -392,7 +461,7 @@ const CreditEmiAI = () => {
     };
 
     btn.onclick = onSubmit;
-    input.addEventListener("keydown", (e) => {
+    input.addEventListener("keydown", (e: KeyboardEvent) => {
       if (e.key === "Enter") {
         e.preventDefault();
         onSubmit();
@@ -402,7 +471,7 @@ const CreditEmiAI = () => {
     setTimeout(() => input.focus(), 80);
   };
 
-  const renderStandardFee = () => {
+  const renderStandardFee = (): void => {
     clearInlineAlert();
     if (!inputRef.current) return;
 
@@ -414,21 +483,22 @@ const CreditEmiAI = () => {
       </div>
     `;
 
-    const input = inputRef.current.querySelector("input");
-    const btn = inputRef.current.querySelector("button");
+    const input = inputRef.current.querySelector("input") as HTMLInputElement;
+    const btn = inputRef.current.querySelector("button") as HTMLButtonElement;
 
-    const onSubmit = () => {
+    const onSubmit = (): void => {
       const raw = String(input.value || "0").trim();
       const fee = Number(raw || "0");
       input.classList.remove("input-error");
 
-      const invalid =
-        Number.isNaN(fee) || fee < 0 || fee > 100_000;
+      const invalid = Number.isNaN(fee) || fee < 0 || fee > 100_000;
 
       if (invalid) {
         invalidRef.current.fee++;
         input.classList.add("input-error");
-        showInlineAlert("Processing fee should be a positive number or 0.");
+        showInlineAlert(
+          "Processing fee should be a positive number or 0."
+        );
         return;
       }
 
@@ -439,7 +509,7 @@ const CreditEmiAI = () => {
     };
 
     btn.onclick = onSubmit;
-    input.addEventListener("keydown", (e) => {
+    input.addEventListener("keydown", (e: KeyboardEvent) => {
       if (e.key === "Enter") {
         e.preventDefault();
         onSubmit();
@@ -449,7 +519,7 @@ const CreditEmiAI = () => {
     setTimeout(() => input.focus(), 80);
   };
 
-  const calculateStandard = () => {
+  const calculateStandard = (): void => {
     const { amount, rate, months, fee } = dataRef.current;
     if (!amount || !rate || !months) {
       bot(
@@ -463,7 +533,7 @@ const CreditEmiAI = () => {
     const R = rate / 100;
     const r = R / 12;
 
-    let emi;
+    let emi: number;
     if (r === 0) {
       emi = P / months;
     } else {
@@ -478,7 +548,6 @@ const CreditEmiAI = () => {
     const gstOnFee = fee * 0.18;
     const totalPayable = totalEmi + fee + gstOnInterest + gstOnFee;
     const extraCost = totalPayable - P;
-
 
     bot("Alright, let me unpack this EMI for you… 🧮", () => {
       const cardHTML = `
@@ -497,25 +566,36 @@ const CreditEmiAI = () => {
           <div class="result-breakdown">
             <div class="result-breakdown-row">
               <span>Principal amount</span>
-              <span>₹${P.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
+              <span>₹${P.toLocaleString("en-IN", {
+                maximumFractionDigits: 2,
+              })}</span>
             </div>
             <div class="result-breakdown-row">
               <span>Total EMI paid (before GST)</span>
-              <span>₹${totalEmi.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
+              <span>₹${totalEmi.toLocaleString("en-IN", {
+                maximumFractionDigits: 2,
+              })}</span>
             </div>
             <div class="result-breakdown-row">
               <span>Total interest (before GST)</span>
-              <span>₹${interest.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
+              <span>₹${interest.toLocaleString("en-IN", {
+                maximumFractionDigits: 2,
+              })}</span>
             </div>
             <div class="result-breakdown-row">
               <span>Processing fee</span>
-              <span>₹${fee.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
+              <span>₹${fee.toLocaleString("en-IN", {
+                maximumFractionDigits: 2,
+              })}</span>
             </div>
             <div class="result-breakdown-row">
               <span>GST on interest + fee (18%)</span>
-              <span>₹${(gstOnInterest + gstOnFee).toLocaleString("en-IN", {
-                maximumFractionDigits: 2,
-              })}</span>
+              <span>₹${(gstOnInterest + gstOnFee).toLocaleString(
+                "en-IN",
+                {
+                  maximumFractionDigits: 2,
+                }
+              )}</span>
             </div>
           </div>
 
@@ -532,11 +612,11 @@ const CreditEmiAI = () => {
         </div>
       `;
 
-       addMsg(cardHTML, "ai", true);
-       // 📊 Show visualization right after numbers!
-       showChartBubble(P, interest, fee, gstOnInterest + gstOnFee);
+      addMsg(cardHTML, "ai", true);
+      // 📊 Show visualization right after numbers!
+      showChartBubble(P, interest, fee, gstOnInterest + gstOnFee);
 
-       setTimeout(() => {
+      setTimeout(() => {
         if (extraCost > P * 0.25) {
           addMsg(
             "That EMI is costing a bit too much 😬 Consider a shorter tenure or part-prepayment to reduce interest.",
@@ -552,13 +632,12 @@ const CreditEmiAI = () => {
 
       // Restart button after chart + insight 📌
       setTimeout(() => renderRestart(), 1200);
-
     });
   };
 
   // -------------- NO-COST EMI FLOW --------------
 
-  const renderNoCostAmount = () => {
+  const renderNoCostAmount = (): void => {
     clearInlineAlert();
     if (!inputRef.current) return;
 
@@ -570,10 +649,10 @@ const CreditEmiAI = () => {
       </div>
     `;
 
-    const input = inputRef.current.querySelector("input");
-    const btn = inputRef.current.querySelector("button");
+    const input = inputRef.current.querySelector("input") as HTMLInputElement;
+    const btn = inputRef.current.querySelector("button") as HTMLButtonElement;
 
-    const onSubmit = () => {
+    const onSubmit = (): void => {
       const raw = String(input.value || "").trim();
       const amount = Number(raw);
       input.classList.remove("input-error");
@@ -591,7 +670,10 @@ const CreditEmiAI = () => {
       if (isSuspiciousAmount(amount)) {
         input.classList.add("input-error");
         showInlineAlert("This looks huge. Double-check the amount.");
-        bot("That’s a big purchase. Make sure the number is correct 😅", null);
+        bot(
+          "That’s a big purchase. Make sure the number is correct 😅",
+          
+        );
         return;
       }
 
@@ -605,7 +687,7 @@ const CreditEmiAI = () => {
     };
 
     btn.onclick = onSubmit;
-    input.addEventListener("keydown", (e) => {
+    input.addEventListener("keydown", (e: KeyboardEvent) => {
       if (e.key === "Enter") {
         e.preventDefault();
         onSubmit();
@@ -614,7 +696,7 @@ const CreditEmiAI = () => {
     setTimeout(() => input.focus(), 80);
   };
 
-  const renderNoCostEmi = () => {
+  const renderNoCostEmi = (): void => {
     clearInlineAlert();
     if (!inputRef.current) return;
 
@@ -626,16 +708,15 @@ const CreditEmiAI = () => {
       </div>
     `;
 
-    const input = inputRef.current.querySelector("input");
-    const btn = inputRef.current.querySelector("button");
+    const input = inputRef.current.querySelector("input") as HTMLInputElement;
+    const btn = inputRef.current.querySelector("button") as HTMLButtonElement;
 
-    const onSubmit = () => {
+    const onSubmit = (): void => {
       const raw = String(input.value || "").trim();
       const emi = Number(raw);
       input.classList.remove("input-error");
 
-      const invalid =
-        !raw || Number.isNaN(emi) || emi <= 0 || emi > 1_000_000;
+      const invalid = !raw || Number.isNaN(emi) || emi <= 0 || emi > 1_000_000;
 
       if (invalid) {
         invalidRef.current.emi++;
@@ -654,7 +735,7 @@ const CreditEmiAI = () => {
     };
 
     btn.onclick = onSubmit;
-    input.addEventListener("keydown", (e) => {
+    input.addEventListener("keydown", (e: KeyboardEvent) => {
       if (e.key === "Enter") {
         e.preventDefault();
         onSubmit();
@@ -663,7 +744,7 @@ const CreditEmiAI = () => {
     setTimeout(() => input.focus(), 80);
   };
 
-  const renderNoCostMonths = () => {
+  const renderNoCostMonths = (): void => {
     clearInlineAlert();
     if (!inputRef.current) return;
 
@@ -675,10 +756,10 @@ const CreditEmiAI = () => {
       </div>
     `;
 
-    const input = inputRef.current.querySelector("input");
-    const btn = inputRef.current.querySelector("button");
+    const input = inputRef.current.querySelector("input") as HTMLInputElement;
+    const btn = inputRef.current.querySelector("button") as HTMLButtonElement;
 
-    const onSubmit = () => {
+    const onSubmit = (): void => {
       const raw = String(input.value || "").trim();
       const months = Number(raw);
       input.classList.remove("input-error");
@@ -696,7 +777,10 @@ const CreditEmiAI = () => {
       if (isSuspiciousMonths(months)) {
         input.classList.add("input-error");
         showInlineAlert("Too long for a typical ‘no-cost’ EMI.");
-        bot("No-cost EMIs are usually short. Re-check the tenure 🙂", null);
+        bot(
+          "No-cost EMIs are usually short. Re-check the tenure 🙂",
+          
+        );
         return;
       }
 
@@ -710,7 +794,7 @@ const CreditEmiAI = () => {
     };
 
     btn.onclick = onSubmit;
-    input.addEventListener("keydown", (e) => {
+    input.addEventListener("keydown", (e: KeyboardEvent) => {
       if (e.key === "Enter") {
         e.preventDefault();
         onSubmit();
@@ -719,7 +803,7 @@ const CreditEmiAI = () => {
     setTimeout(() => input.focus(), 80);
   };
 
-  const renderNoCostFee = () => {
+  const renderNoCostFee = (): void => {
     clearInlineAlert();
     if (!inputRef.current) return;
 
@@ -731,16 +815,15 @@ const CreditEmiAI = () => {
       </div>
     `;
 
-    const input = inputRef.current.querySelector("input");
-    const btn = inputRef.current.querySelector("button");
+    const input = inputRef.current.querySelector("input") as HTMLInputElement;
+    const btn = inputRef.current.querySelector("button") as HTMLButtonElement;
 
-    const onSubmit = () => {
+    const onSubmit = (): void => {
       const raw = String(input.value || "0").trim();
       const fee = Number(raw || "0");
       input.classList.remove("input-error");
 
-      const invalid =
-        Number.isNaN(fee) || fee < 0 || fee > 100_000;
+      const invalid = Number.isNaN(fee) || fee < 0 || fee > 100_000;
 
       if (invalid) {
         invalidRef.current.fee++;
@@ -756,7 +839,7 @@ const CreditEmiAI = () => {
     };
 
     btn.onclick = onSubmit;
-    input.addEventListener("keydown", (e) => {
+    input.addEventListener("keydown", (e: KeyboardEvent) => {
       if (e.key === "Enter") {
         e.preventDefault();
         onSubmit();
@@ -765,7 +848,7 @@ const CreditEmiAI = () => {
     setTimeout(() => input.focus(), 80);
   };
 
-  const calculateNoCost = () => {
+  const calculateNoCost = (): void => {
     const { amount, emi, months, fee } = dataRef.current;
     if (!amount || !emi || !months) {
       bot(
@@ -857,7 +940,7 @@ const CreditEmiAI = () => {
 
   // -------------- MINIMUM DUE FLOW --------------
 
-  const renderMinDueBalance = () => {
+  const renderMinDueBalance = (): void => {
     clearInlineAlert();
     if (!inputRef.current) return;
 
@@ -869,10 +952,10 @@ const CreditEmiAI = () => {
       </div>
     `;
 
-    const input = inputRef.current.querySelector("input");
-    const btn = inputRef.current.querySelector("button");
+    const input = inputRef.current.querySelector("input") as HTMLInputElement;
+    const btn = inputRef.current.querySelector("button") as HTMLButtonElement;
 
-    const onSubmit = () => {
+    const onSubmit = (): void => {
       const raw = String(input.value || "").trim();
       const amount = Number(raw);
       input.classList.remove("input-error");
@@ -883,14 +966,16 @@ const CreditEmiAI = () => {
       if (invalid) {
         invalidRef.current.amount++;
         input.classList.add("input-error");
-        showInlineAlert("Use a valid statement amount like 12000 or 45000.");
+        showInlineAlert(
+          "Use a valid statement amount like 12000 or 45000."
+        );
         return;
       }
 
       if (isSuspiciousAmount(amount)) {
         input.classList.add("input-error");
         showInlineAlert("That’s a huge bill. Please double-check.");
-        bot("That’s a serious balance. Let’s handle it carefully 💀", null);
+        bot("That’s a serious balance. Let’s handle it carefully 💀");
         return;
       }
 
@@ -898,13 +983,14 @@ const CreditEmiAI = () => {
       dataRef.current.amount = amount;
       addMsg(`₹${amount.toLocaleString("en-IN")}`, "user");
 
-      bot("What annual interest rate does your card charge? (% p.a.)", () =>
-        renderMinDueApr()
+      bot(
+        "What annual interest rate does your card charge? (% p.a.)",
+        () => renderMinDueApr()
       );
     };
 
     btn.onclick = onSubmit;
-    input.addEventListener("keydown", (e) => {
+    input.addEventListener("keydown", (e: KeyboardEvent) => {
       if (e.key === "Enter") {
         e.preventDefault();
         onSubmit();
@@ -913,7 +999,7 @@ const CreditEmiAI = () => {
     setTimeout(() => input.focus(), 80);
   };
 
-  const renderMinDueApr = () => {
+  const renderMinDueApr = (): void => {
     clearInlineAlert();
     if (!inputRef.current) return;
 
@@ -925,16 +1011,15 @@ const CreditEmiAI = () => {
       </div>
     `;
 
-    const input = inputRef.current.querySelector("input");
-    const btn = inputRef.current.querySelector("button");
+    const input = inputRef.current.querySelector("input") as HTMLInputElement;
+    const btn = inputRef.current.querySelector("button") as HTMLButtonElement;
 
-    const onSubmit = () => {
+    const onSubmit = (): void => {
       const raw = String(input.value || "").trim();
       const apr = Number(raw);
       input.classList.remove("input-error");
 
-      const invalid =
-        !raw || Number.isNaN(apr) || apr <= 0 || apr > 100;
+      const invalid = !raw || Number.isNaN(apr) || apr <= 0 || apr > 100;
 
       if (invalid) {
         invalidRef.current.apr++;
@@ -946,7 +1031,10 @@ const CreditEmiAI = () => {
       if (isSuspiciousRate(apr)) {
         input.classList.add("input-error");
         showInlineAlert("This is extremely high APR. Check your statement.");
-        bot("If your APR is really this high, minimum due is very dangerous 😬", null);
+        bot(
+          "If your APR is really this high, minimum due is very dangerous 😬",
+          
+        );
         return;
       }
 
@@ -954,13 +1042,14 @@ const CreditEmiAI = () => {
       dataRef.current.apr = apr;
       addMsg(`${apr}% p.a.`, "user");
 
-      bot("What minimum due % is shown on your statement? (Ex: 5%)", () =>
-        renderMinDuePercent()
+      bot(
+        "What minimum due % is shown on your statement? (Ex: 5%)",
+        () => renderMinDuePercent()
       );
     };
 
     btn.onclick = onSubmit;
-    input.addEventListener("keydown", (e) => {
+    input.addEventListener("keydown", (e: KeyboardEvent) => {
       if (e.key === "Enter") {
         e.preventDefault();
         onSubmit();
@@ -969,7 +1058,7 @@ const CreditEmiAI = () => {
     setTimeout(() => input.focus(), 80);
   };
 
-  const renderMinDuePercent = () => {
+  const renderMinDuePercent = (): void => {
     clearInlineAlert();
     if (!inputRef.current) return;
 
@@ -981,10 +1070,10 @@ const CreditEmiAI = () => {
       </div>
     `;
 
-    const input = inputRef.current.querySelector("input");
-    const btn = inputRef.current.querySelector("button");
+    const input = inputRef.current.querySelector("input") as HTMLInputElement;
+    const btn = inputRef.current.querySelector("button") as HTMLButtonElement;
 
-    const onSubmit = () => {
+    const onSubmit = (): void => {
       const raw = String(input.value || "").trim();
       const minPct = Number(raw);
       input.classList.remove("input-error");
@@ -1001,8 +1090,13 @@ const CreditEmiAI = () => {
 
       if (isSuspiciousMinPercent(minPct)) {
         input.classList.add("input-error");
-        showInlineAlert("Minimum due usually around 3–5%. Check your statement.");
-        bot("If your minimum due % is that high, that’s unusual. Confirm once 🤔", null);
+        showInlineAlert(
+          "Minimum due usually around 3–5%. Check your statement."
+        );
+        bot(
+          "If your minimum due % is that high, that’s unusual. Confirm once 🤔",
+          
+        );
         return;
       }
 
@@ -1010,13 +1104,14 @@ const CreditEmiAI = () => {
       dataRef.current.minPercent = minPct;
       addMsg(`${minPct}% of balance`, "user");
 
-      bot("For how many months do you want to simulate paying only minimum due?", () =>
-        renderMinDueMonths()
+      bot(
+        "For how many months do you want to simulate paying only minimum due?",
+        () => renderMinDueMonths()
       );
     };
 
     btn.onclick = onSubmit;
-    input.addEventListener("keydown", (e) => {
+    input.addEventListener("keydown", (e: KeyboardEvent) => {
       if (e.key === "Enter") {
         e.preventDefault();
         onSubmit();
@@ -1025,7 +1120,7 @@ const CreditEmiAI = () => {
     setTimeout(() => input.focus(), 80);
   };
 
-  const renderMinDueMonths = () => {
+  const renderMinDueMonths = (): void => {
     clearInlineAlert();
     if (!inputRef.current) return;
 
@@ -1037,16 +1132,19 @@ const CreditEmiAI = () => {
       </div>
     `;
 
-    const input = inputRef.current.querySelector("input");
-    const btn = inputRef.current.querySelector("button");
+    const input = inputRef.current.querySelector("input") as HTMLInputElement;
+    const btn = inputRef.current.querySelector("button") as HTMLButtonElement;
 
-    const onSubmit = () => {
+    const onSubmit = (): void => {
       const raw = String(input.value || "").trim();
       const monthsMin = Number(raw);
       input.classList.remove("input-error");
 
       const invalid =
-        !raw || Number.isNaN(monthsMin) || monthsMin <= 0 || monthsMin > 360;
+        !raw ||
+        Number.isNaN(monthsMin) ||
+        monthsMin <= 0 ||
+        monthsMin > 360;
 
       if (invalid) {
         invalidRef.current.monthsMin++;
@@ -1063,7 +1161,7 @@ const CreditEmiAI = () => {
     };
 
     btn.onclick = onSubmit;
-    input.addEventListener("keydown", (e) => {
+    input.addEventListener("keydown", (e: KeyboardEvent) => {
       if (e.key === "Enter") {
         e.preventDefault();
         onSubmit();
@@ -1072,7 +1170,7 @@ const CreditEmiAI = () => {
     setTimeout(() => input.focus(), 80);
   };
 
-  const calculateMinDue = () => {
+  const calculateMinDue = (): void => {
     const { amount, apr, minPercent, monthsMin } = dataRef.current;
     if (!amount || !apr || !minPercent || !monthsMin) {
       bot(
@@ -1160,7 +1258,7 @@ const CreditEmiAI = () => {
 
   // -------------- restart & init --------------
 
-  const renderRestart = () => {
+  const renderRestart = (): void => {
     if (!inputRef.current) return;
     clearInlineAlert();
     inputRef.current.innerHTML = `
@@ -1168,11 +1266,11 @@ const CreditEmiAI = () => {
         <button class="primary-btn">Run another EMI check 🔁</button>
       </div>
     `;
-    const btn = inputRef.current.querySelector("button");
+    const btn = inputRef.current.querySelector("button") as HTMLButtonElement;
     btn.onclick = () => startFresh();
   };
 
-  const startFresh = () => {
+  const startFresh = (): void => {
     dataRef.current = { ...INITIAL_DATA };
     invalidRef.current = {
       amount: 0,
@@ -1187,17 +1285,23 @@ const CreditEmiAI = () => {
     };
 
     bot("New session, fresh analysis 💳✨", () => {
-      bot("Tell me what you want to check this time.", () => renderFlowSelect());
+      bot("Tell me what you want to check this time.", () =>
+        renderFlowSelect()
+      );
     });
   };
 
   useEffect(() => {
     bot("Hey! I’m your Credit Card EMI AI from Openroot 😎", () => {
-      bot("I’ll help you decode EMI, ‘no-cost’ offers and minimum-due traps 📉", () => {
-        bot("We’ll keep it super simple. You just answer, I do the math 💜", () =>
-          renderFlowSelect()
-        );
-      });
+      bot(
+        "I’ll help you decode EMI, ‘no-cost’ offers and minimum-due traps 📉",
+        () => {
+          bot(
+            "We’ll keep it super simple. You just answer, I do the math 💜",
+            () => renderFlowSelect()
+          );
+        }
+      );
     });
 
     return () => {
