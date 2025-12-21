@@ -428,7 +428,7 @@ const LoveCalculator: React.FC = () => {
             <div className="status-dot" />
             <span className="assistant-name">Love Match Engine</span>
             <span className="assistant-tag">
-              Openroot — Dark Humor Romance Module
+              Openroot — Romance Module
             </span>
           </div>
 
@@ -486,7 +486,7 @@ const LoveCalculator: React.FC = () => {
         </section>
 
         <aside className="info-card">
-          <h2>Love Numerology Engine</h2>
+          <h2>Love Match Engine</h2>
           <ul>
             <li>Letter vibration + destiny number match</li>
             <li>Vowel harmony & shared letter magnetism</li>
@@ -494,8 +494,7 @@ const LoveCalculator: React.FC = () => {
             <li>Gemini-powered drama queen commentary 😈</li>
           </ul>
           <p className="info-note">
-            100% fun, 0% guarantee — just like your ex. Use it to laugh, not to
-            propose. 😌
+            100% fun, 0% guarantee — just like your ex. 😌
           </p>
         </aside>
       </main>
